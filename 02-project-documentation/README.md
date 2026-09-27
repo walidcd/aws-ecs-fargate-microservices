@@ -2,235 +2,159 @@
 
 ## Project 6 — Containerized Microservices with ECS Fargate and Service Discovery
 
-## 1. Objective
+### Objective
 
-The goal is to migrate a monolithic application into three independently deployable microservices — **Auth**, **Orders**, and **Notifications** — and run them on AWS using Amazon ECS with AWS Fargate.
+The project migrates a monolithic application into three microservices — **Auth**, **Orders**, and **Notifications** — and runs them on **Amazon ECS with AWS Fargate**.
 
-The design focuses on:
+The architecture demonstrates:
 
-- container orchestration without managing EC2 hosts;
-- high availability across multiple Availability Zones;
-- path-based routing for public APIs;
-- private service-to-service discovery;
-- centralized secret management;
-- shared session caching;
-- automated blue/green deployments;
-- centralized logging and distributed tracing.
+- container images stored in **Amazon ECR**;
+- microservices running as **ECS Fargate services**;
+- external routing through an **Application Load Balancer**;
+- private service-to-service discovery with **AWS Cloud Map**;
+- sensitive configuration stored in **AWS Secrets Manager**;
+- shared session caching with **Amazon ElastiCache for Redis**;
+- CI/CD with **AWS CodePipeline and AWS CodeDeploy** using blue/green deployment;
+- distributed tracing with **AWS X-Ray**.
 
-## 2. Application decomposition
+### Microservices
 
-### Auth Service
+#### Auth Service
 
-Responsibilities:
+Handles authentication and session creation. Session state is kept in Redis so Auth tasks remain stateless and can scale horizontally.
 
-- user registration and login;
-- session creation and validation;
-- session storage in Redis.
+#### Orders Service
 
-The service remains stateless because session state is stored outside the ECS task.
+Handles order requests. It is exposed through the ALB and communicates with the Notifications service through Cloud Map DNS.
 
-### Orders Service
+#### Notifications Service
 
-Responsibilities:
+Receives internal notification requests. It is not directly exposed to the internet.
 
-- create and retrieve orders;
-- validate authenticated sessions;
-- persist order data;
-- call the Notifications service after an order is created.
-
-### Notifications Service
-
-Responsibilities:
-
-- receive internal notification requests;
-- represent asynchronous or downstream notification processing.
-
-The service is not exposed directly to the internet.
-
-## 3. AWS architecture
-
-The final architecture is shown in:
-
-[../01-architecture-diagram/architecture.svg](../01-architecture-diagram/architecture.svg)
-
-### Network layout
-
-The VPC spans **two Availability Zones**.
-
-- **Public subnets** contain the internet-facing Application Load Balancer.
-- **Private application subnets** contain the ECS Fargate tasks.
-- **Private data subnets** contain the database and Redis layer.
-
-Only the Application Load Balancer is internet-facing.
-
-## 4. Amazon ECS with AWS Fargate
-
-Each microservice is packaged as its own Docker image and runs as a separate ECS service.
-
-Fargate is used because it removes the need to provision, patch, or scale EC2 worker nodes. Each service can scale independently based on demand.
-
-A production-oriented configuration keeps at least two tasks for externally used services so tasks can run across both Availability Zones.
-
-## 5. Amazon ECR
-
-Each service has its own private ECR repository:
-
-- auth image;
-- orders image;
-- notifications image.
-
-Image scanning on push is enabled in the supporting infrastructure design.
-
-## 6. Application Load Balancer
-
-The Application Load Balancer provides Layer 7 routing.
-
-Example routing rules:
+### Request flow
 
 ```text
-/api/auth/*    -> Auth ECS service
-/api/orders/*  -> Orders ECS service
+User
+  |
+  v
+Application Load Balancer
+  |------------------------|
+  | /api/auth/*            | /api/orders/*
+  v                        v
+Auth Service           Orders Service
+  |                        |
+  v                        | AWS Cloud Map
+ElastiCache Redis           v
+                       Notifications Service
 ```
 
-The Notifications service does not need a public route.
+### ECS Fargate
 
-## 7. AWS Cloud Map service discovery
+Each microservice is packaged as a Docker image and runs as its own ECS service. Fargate is used so the application does not need to manage EC2 worker nodes.
 
-The Orders service discovers the Notifications service through a private Cloud Map DNS namespace.
+Services can scale independently according to demand.
 
-Example:
+### Amazon ECR
+
+Each microservice has its own private image repository in Amazon ECR. Image scanning can be enabled on push before new images are deployed.
+
+### Application Load Balancer
+
+The ALB is the public entry point and uses path-based routing.
+
+```text
+/api/auth/*    -> Auth service
+/api/orders/*  -> Orders service
+```
+
+The Notifications service remains private.
+
+### AWS Cloud Map
+
+Cloud Map provides DNS-based service discovery for internal communication.
+
+Example private service name:
 
 ```text
 notifications.microservices.local
 ```
 
-This avoids hardcoding task IP addresses. ECS can replace or scale tasks while clients continue using the same service name.
+This allows the Orders service to locate Notifications without knowing individual ECS task IP addresses.
 
-## 8. AWS Secrets Manager
+### AWS Secrets Manager
 
-Sensitive values such as database credentials must not be stored in source code or container images.
+Application secrets and credentials are stored outside the source code and container images. ECS task roles can be granted only the permissions required to read the relevant secrets.
 
-AWS Secrets Manager is used to store sensitive configuration and make it available to ECS tasks at runtime through IAM-controlled access.
+### ElastiCache for Redis
 
-## 9. ElastiCache for Redis
+Redis provides shared session storage across stateless Auth tasks. This allows multiple Fargate tasks to handle requests for the same authenticated user.
 
-Amazon ElastiCache for Redis is used as a shared session store.
+### High availability and scaling
 
-This allows multiple Auth tasks to serve the same users without keeping session state inside individual containers, which supports horizontal scaling.
+The solution is designed across two Availability Zones.
 
-## 10. Data persistence
+- The ALB spans public subnets in both AZs.
+- ECS tasks run in private application subnets.
+- ECS services can run multiple tasks and use Service Auto Scaling.
+- Redis is shared across the stateless application tasks.
 
-The project uses PostgreSQL as a supporting design choice for user and order persistence.
+### CI/CD and blue/green deployment
 
-The database is placed in private data subnets and is not publicly reachable. A Multi-AZ configuration can be used for production-style availability.
-
-## 11. High availability and scaling
-
-The design uses:
-
-- two Availability Zones;
-- an ALB spanning public subnets in both AZs;
-- ECS tasks running in private subnets;
-- multiple ECS tasks per service where needed;
-- ECS Service Auto Scaling;
-- Multi-AZ database design;
-- Redis replication/failover design.
-
-Target tracking can scale ECS services based on average CPU utilization or another suitable CloudWatch metric.
-
-## 12. Blue/green deployment
-
-The deployment design follows:
+The deployment flow is:
 
 ```text
 GitHub
-   |
-   v
+  |
+  v
 CodePipeline
-   |
-   v
+  |
+  v
 CodeBuild
-   |
-   v
+  |
+  v
 Amazon ECR
-   |
-   v
+  |
+  v
 CodeDeploy
-   |
-   v
-ECS blue / green task sets
+  |
+  v
+ECS Blue / Green task sets
 ```
 
-CodeDeploy can direct production traffic between blue and green ECS task sets through ALB target groups and automatically roll back if a deployment fails.
-
-## 13. Observability
-
-### CloudWatch
-
-CloudWatch is used for:
-
-- ECS application logs;
-- container and service metrics;
-- ALB health metrics;
-- alarms.
+CodeDeploy can create a new ECS task set, validate it through an ALB target group, shift traffic to the new version, and roll back when deployment health checks fail.
 
 ### AWS X-Ray
 
-X-Ray provides distributed tracing across the microservices so a request can be followed through multiple services.
+AWS X-Ray provides distributed tracing across calls between the microservices and helps visualize latency and failures across the service chain.
 
-Example flow:
+### Security
 
-```text
-Client -> ALB -> Orders -> Notifications
-```
+The proposed design follows these principles:
 
-## 14. Security design
+- only the ALB is internet-facing;
+- Fargate tasks run in private subnets;
+- security groups restrict traffic between components;
+- application secrets are stored in Secrets Manager;
+- IAM task roles follow least privilege;
+- container images are stored in private ECR repositories.
 
-The main controls are:
+### Architecture decisions
 
-- public access terminates at the ALB;
-- ECS tasks stay in private subnets;
-- RDS and Redis stay in private data subnets;
-- security groups restrict traffic between tiers;
-- secrets are stored in Secrets Manager;
-- ECS task roles follow least privilege;
-- TLS is used at the public entry point;
-- ECR image scanning is enabled;
-- logs are centralized in CloudWatch.
+| Requirement | AWS service / design |
+| --- | --- |
+| Run containers without managing servers | ECS Fargate |
+| Private container registry | Amazon ECR |
+| Public Layer 7 routing | Application Load Balancer |
+| Internal service discovery | AWS Cloud Map |
+| Secret storage | AWS Secrets Manager |
+| Shared session cache | ElastiCache for Redis |
+| Automated deployment | CodePipeline + CodeDeploy |
+| Safe releases | ECS blue/green deployment |
+| Distributed tracing | AWS X-Ray |
 
-## 15. Request example
+### Optional implementation artifacts
 
-A simplified order flow is:
+The folder [03-optional-demo](03-optional-demo) contains supporting implementation material such as sample microservices, Docker Compose, Terraform, CI/CD templates, and operational notes.
 
-```text
-1. User authenticates through /api/auth/login
-2. Auth creates a shared Redis session
-3. User calls /api/orders with the session token
-4. Orders validates the session
-5. Orders writes the order to PostgreSQL
-6. Orders resolves Notifications through Cloud Map
-7. Notifications processes the internal request
-8. Logs and traces are sent to CloudWatch / X-Ray
-```
+These artifacts are **optional supporting material**. This repository does **not** claim that the full AWS environment has been deployed, and no live URL, screenshots, or demo video are part of the mandatory submission.
 
-## 16. Why this architecture
-
-This design meets the project goals because it:
-
-- uses ECS Fargate to avoid server management;
-- separates the application into independently scalable services;
-- uses ALB path-based routing for public traffic;
-- uses Cloud Map for private service discovery;
-- uses Secrets Manager instead of hardcoded credentials;
-- uses Redis to keep services stateless;
-- supports blue/green deployments through CodeDeploy;
-- provides centralized logs and distributed tracing.
-
-## 17. Deliverables
-
-The submission contains:
-
-1. **Solution Architecture Diagram** — folder `01-architecture-diagram`.
-2. **Complete Project Documentation** — this document and the root README.
-
-Optional implementation artifacts are separated into `03-optional-demo` so the mandatory submission remains easy to review.
