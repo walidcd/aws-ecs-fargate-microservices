@@ -1,0 +1,25 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+      - REGISTRY="$ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com"
+      - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$REGISTRY"
+      - IMAGE_TAG="${CODEBUILD_RESOLVED_SOURCE_VERSION:-latest}"
+  build:
+    commands:
+      - |
+        for SERVICE in auth orders notifications; do
+          docker build -t "$REGISTRY/microservices-$SERVICE:$IMAGE_TAG" "services/$SERVICE-service"
+          docker push "$REGISTRY/microservices-$SERVICE:$IMAGE_TAG"
+        done
+  post_build:
+    commands:
+      - printf '{"ImageURI":"%s"}' "$REGISTRY/microservices-orders:$IMAGE_TAG" > imageDetail.json
+
+artifacts:
+  files:
+    - imageDetail.json
+    - cicd/appspec.yaml
+    - cicd/taskdef.json
