@@ -1,0 +1,6 @@
+aws_region      = "eu-west-3"
+project_name    = "microservices"
+certificate_arn = "arn:aws:acm:eu-west-3:123456789012:certificate/REPLACE_ME"
+
+# Optional if you wire the CodePipeline source stage with CodeStar Connections:
+# codestar_connection_arn = "arn:aws:codestar-connections:..."
