@@ -1,10 +1,8 @@
-# Optional Implementation / Demo Artifacts
+# Optional Supporting Artifacts
 
-This folder contains **supporting artifacts only**. They are intentionally separated from the two mandatory deliverables.
+This folder contains supporting implementation artifacts only. It is separate from the mandatory submission.
 
-There is **no live deployment URL, recorded video, or screenshots** in this submission.
-
-## Included artifacts
+## Included
 
 ```text
 03-optional-demo/
@@ -20,52 +18,12 @@ There is **no live deployment URL, recorded video, or screenshots** in this subm
     └── docs/
 ```
 
-### Application artifacts
+The artifacts include sample Node.js microservices, local Docker Compose configuration, Terraform infrastructure, CI/CD templates, and operational notes.
 
-Three small Node.js services demonstrate the proposed decomposition:
-
-- Auth
-- Orders
-- Notifications
-
-### Local artifacts
-
-Docker Compose provides PostgreSQL, Redis, and the three services for local experimentation.
-
-### Infrastructure as Code
-
-The Terraform files are a supporting reference implementation for:
-
-- VPC and multi-AZ subnet layout;
-- NAT gateways and routing;
-- security groups;
-- ECS/Fargate;
-- ECR;
-- ALB;
-- Cloud Map;
-- RDS;
-- ElastiCache;
-- Secrets Manager;
-- CloudWatch;
-- X-Ray;
-- autoscaling;
-- CodeBuild, CodePipeline, and CodeDeploy.
-
-### CI/CD artifacts
-
-The `cicd` folder contains reference CodeBuild and ECS CodeDeploy blue/green deployment files.
-
-### Operational notes
-
-The `docs` folder contains optional deployment, testing, security, cost, and cleanup guidance.
-
-> These artifacts support the architecture documentation; they are not presented as evidence of a live AWS deployment.
-
+They are provided as supporting implementation material only. This repository does **not** claim that the full AWS environment is deployed.
 
 ## Placeholders
 
-Some infrastructure and CI/CD templates contain values such as `REPLACE_ME`, `<TASK_DEFINITION>`, `<AWS_REGION>`, or account-specific ARNs.
+Infrastructure and CI/CD templates may contain account- or deployment-specific placeholders such as `REPLACE_ME`, `<TASK_DEFINITION>`, `<AWS_REGION>`, or ARNs.
 
-They are intentionally left as placeholders because this folder is optional supporting material and the repository does not claim a live AWS deployment.
-
-Replace them only if you choose to actually deploy or demonstrate the optional implementation.
+They only need to be replaced if the optional implementation is actually deployed.
