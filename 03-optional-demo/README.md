@@ -60,3 +60,12 @@ The `cicd` folder contains reference CodeBuild and ECS CodeDeploy blue/green dep
 The `docs` folder contains optional deployment, testing, security, cost, and cleanup guidance.
 
 > These artifacts support the architecture documentation; they are not presented as evidence of a live AWS deployment.
+
+
+## Placeholders
+
+Some infrastructure and CI/CD templates contain values such as `REPLACE_ME`, `<TASK_DEFINITION>`, `<AWS_REGION>`, or account-specific ARNs.
+
+They are intentionally left as placeholders because this folder is optional supporting material and the repository does not claim a live AWS deployment.
+
+Replace them only if you choose to actually deploy or demonstrate the optional implementation.
