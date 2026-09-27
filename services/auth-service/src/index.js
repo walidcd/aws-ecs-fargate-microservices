@@ -1,3 +1,4 @@
+const AWSXRay = require("aws-xray-sdk");
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const { Pool } = require("pg");
@@ -5,6 +6,8 @@ const { createClient } = require("redis");
 const { randomUUID } = require("crypto");
 
 const app = express();
+AWSXRay.setContextMissingStrategy("LOG_ERROR");
+app.use(AWSXRay.express.openSegment("AuthService"));
 app.use(express.json());
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -50,7 +53,9 @@ app.post("/api/auth/login", async (req,res) => {
 
 async function start() {
   await redis.connect();
-  const port = Number(process.env.PORT || 8081);
+  app.use(AWSXRay.express.closeSegment());
+
+const port = Number(process.env.PORT || 8081);
   app.listen(port, () => console.log(JSON.stringify({service:"auth",event:"started",port})));
 }
 start().catch(e => { console.error(e); process.exit(1); });
