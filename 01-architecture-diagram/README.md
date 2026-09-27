@@ -2,22 +2,18 @@
 
 ![AWS ECS Fargate Microservices Architecture](architecture.svg)
 
-## Main flow
+This is the final architecture diagram for Project 6.
 
-```text
-Internet
-   |
-   v
-Application Load Balancer
-   |----------------------|
-   v                      v
-Auth Service          Orders Service
-   |                      |
-   |                      +---- Cloud Map ----> Notifications Service
-   |
-   +---- Redis
+It shows the required runtime and delivery components:
 
-Auth / Orders ----> PostgreSQL
-```
+- Application Load Balancer
+- Amazon ECS on AWS Fargate
+- Auth, Orders, and Notifications services
+- AWS Cloud Map
+- Amazon ElastiCache for Redis
+- AWS Secrets Manager
+- Amazon ECR
+- AWS CodePipeline, CodeBuild, and CodeDeploy
+- AWS X-Ray
 
-The ECS services run on **AWS Fargate in private subnets across two Availability Zones**. The ALB is the public entry point. AWS Cloud Map provides private DNS-based service discovery, Secrets Manager protects sensitive configuration, ECR stores container images, and CodePipeline/CodeDeploy support blue/green delivery. CloudWatch and X-Ray provide observability.
+The complete project explanation is kept in the [root README](../README.md) to avoid duplicate documentation.
