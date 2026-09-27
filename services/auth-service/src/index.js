@@ -7,7 +7,9 @@ const { randomUUID } = require("crypto");
 
 const app = express();
 AWSXRay.setContextMissingStrategy("LOG_ERROR");
-app.use(AWSXRay.express.openSegment("AuthService"));
+if (process.env.AWS_XRAY_DAEMON_ADDRESS) {
+  app.use(AWSXRay.express.openSegment("AuthService"));
+}
 app.use(express.json());
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -51,11 +53,13 @@ app.post("/api/auth/login", async (req,res) => {
   }
 });
 
+if (process.env.AWS_XRAY_DAEMON_ADDRESS) {
+  app.use(AWSXRay.express.closeSegment());
+}
+
 async function start() {
   await redis.connect();
-  app.use(AWSXRay.express.closeSegment());
-
-const port = Number(process.env.PORT || 8081);
+  const port = Number(process.env.PORT || 8081);
   app.listen(port, () => console.log(JSON.stringify({service:"auth",event:"started",port})));
 }
 start().catch(e => { console.error(e); process.exit(1); });
