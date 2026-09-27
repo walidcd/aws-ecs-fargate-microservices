@@ -5,7 +5,9 @@ const { createClient } = require("redis");
 
 const app = express();
 AWSXRay.setContextMissingStrategy("LOG_ERROR");
-app.use(AWSXRay.express.openSegment("OrdersService"));
+if (process.env.AWS_XRAY_DAEMON_ADDRESS) {
+  app.use(AWSXRay.express.openSegment("OrdersService"));
+}
 app.use(express.json());
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -54,11 +56,13 @@ app.post("/api/orders", requireSession, async (req,res) => {
   }
 });
 
+if (process.env.AWS_XRAY_DAEMON_ADDRESS) {
+  app.use(AWSXRay.express.closeSegment());
+}
+
 async function start() {
   await redis.connect();
-  app.use(AWSXRay.express.closeSegment());
-
-const port = Number(process.env.PORT || 8082);
+  const port = Number(process.env.PORT || 8082);
   app.listen(port, () => console.log(JSON.stringify({service:"orders",event:"started",port,notificationsUrl})));
 }
 start().catch(e => { console.error(e); process.exit(1); });
