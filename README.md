@@ -2,130 +2,65 @@
 
 **AWS Solutions Architect - Associate Graduation Project — Project 6**
 
-This repository contains the two mandatory project deliverables first, followed by optional implementation artifacts.
+This repository contains the two mandatory submission items first, with optional implementation artifacts kept separate.
 
-## Submission
-
-### 1. Solution Architecture Diagram
-
-The architecture source is available in Draw.io format:
-
-- [Draw.io source](01-architecture-diagram/architecture.drawio)
-- [Architecture folder](01-architecture-diagram)
-
-Current preview:
+## 1. Solution Architecture Diagram
 
 ![Solution Architecture](01-architecture-diagram/architecture.svg)
 
-### 2. Project Documentation
+The diagram is also available directly in the [architecture folder](01-architecture-diagram).
 
-The complete project documentation is included below and is also available in:
-
-- [Project documentation folder](02-project-documentation)
-
----
-
-## Project 6 — Containerized Microservices with ECS Fargate and Service Discovery
+## 2. Project Documentation
 
 ### Objective
 
-The project migrates a monolithic application into three microservices — **Auth**, **Orders**, and **Notifications** — and runs them on **Amazon ECS with AWS Fargate**.
+Migrate a monolithic Node.js application into three microservices — **Auth**, **Orders**, and **Notifications** — and run them on **Amazon ECS with AWS Fargate**.
 
-The architecture demonstrates:
+### Architecture
 
-- container images stored in **Amazon ECR**;
-- microservices running as **ECS Fargate services**;
-- external routing through an **Application Load Balancer**;
-- private service-to-service discovery with **AWS Cloud Map**;
-- sensitive configuration stored in **AWS Secrets Manager**;
-- shared session caching with **Amazon ElastiCache for Redis**;
-- CI/CD with **AWS CodePipeline and AWS CodeDeploy** using blue/green deployment;
-- distributed tracing with **AWS X-Ray**.
-
-### Microservices
-
-#### Auth Service
-
-Handles authentication and session creation. Session state is kept in Redis so Auth tasks remain stateless and can scale horizontally.
-
-#### Orders Service
-
-Handles order requests. It is exposed through the ALB and communicates with the Notifications service through Cloud Map DNS.
-
-#### Notifications Service
-
-Receives internal notification requests. It is not directly exposed to the internet.
+- **Application Load Balancer** routes external traffic.
+- **Auth Service**, **Orders Service**, and **Notifications Service** run as ECS Fargate services.
+- **AWS Cloud Map** provides private service discovery.
+- **Amazon ElastiCache for Redis** stores shared session data.
+- **AWS Secrets Manager** supplies runtime secrets.
+- **Amazon ECR** stores the container images.
+- **AWS CodePipeline + CodeBuild + CodeDeploy** provide CI/CD with blue/green deployment.
+- **AWS X-Ray** provides distributed tracing.
 
 ### Request flow
 
 ```text
-User
+Users
   |
   v
 Application Load Balancer
-  |------------------------|
-  | /api/auth/*            | /api/orders/*
-  v                        v
-Auth Service           Orders Service
-  |                        |
-  v                        | AWS Cloud Map
-ElastiCache Redis           v
-                       Notifications Service
+  |----------------------|
+  | /api/auth/*          | /api/orders/*
+  v                      v
+Auth Service         Orders Service
+  |                      |
+  v                      v
+Redis               AWS Cloud Map
+                         |
+                         v
+                 Notifications Service
 ```
 
-### ECS Fargate
+### Microservices
 
-Each microservice is packaged as a Docker image and runs as its own ECS service. Fargate is used so the application does not need to manage EC2 worker nodes.
+**Auth Service**
+- Handles authentication and session creation.
+- Stores shared session state in Redis.
 
-Services can scale independently according to demand.
+**Orders Service**
+- Handles order requests.
+- Uses Cloud Map to discover the Notifications service.
 
-### Amazon ECR
+**Notifications Service**
+- Receives internal notification requests.
+- Is not exposed directly to the internet.
 
-Each microservice has its own private image repository in Amazon ECR. Image scanning can be enabled on push before new images are deployed.
-
-### Application Load Balancer
-
-The ALB is the public entry point and uses path-based routing.
-
-```text
-/api/auth/*    -> Auth service
-/api/orders/*  -> Orders service
-```
-
-The Notifications service remains private.
-
-### AWS Cloud Map
-
-Cloud Map provides DNS-based service discovery for internal communication.
-
-Example private service name:
-
-```text
-notifications.microservices.local
-```
-
-This allows the Orders service to locate Notifications without knowing individual ECS task IP addresses.
-
-### AWS Secrets Manager
-
-Application secrets and credentials are stored outside the source code and container images. ECS task roles can be granted only the permissions required to read the relevant secrets.
-
-### ElastiCache for Redis
-
-Redis provides shared session storage across stateless Auth tasks. This allows multiple Fargate tasks to handle requests for the same authenticated user.
-
-### High availability and scaling
-
-The solution is designed across two Availability Zones.
-
-- The ALB spans public subnets in both AZs.
-- ECS tasks run in private application subnets.
-- ECS services can run multiple tasks and use Service Auto Scaling.
-- Redis is shared across the stateless application tasks.
-
-### CI/CD and blue/green deployment
-
-The deployment flow is:
+### CI/CD
 
 ```text
 GitHub
@@ -133,57 +68,39 @@ GitHub
   v
 CodePipeline
   |
-  v
-CodeBuild
+  +--> CodeBuild --> Amazon ECR
   |
-  v
-Amazon ECR
-  |
-  v
-CodeDeploy
-  |
-  v
-ECS Blue / Green task sets
+  +--> CodeDeploy --> ECS blue/green deployment
 ```
 
-CodeDeploy can create a new ECS task set, validate it through an ALB target group, shift traffic to the new version, and roll back when deployment health checks fail.
+### Security and availability
 
-### AWS X-Ray
+- The ALB is the public entry point.
+- ECS services are intended to run in private application subnets.
+- Secrets are stored in AWS Secrets Manager rather than in source code.
+- Container images are stored in private ECR repositories.
+- IAM access should follow least privilege.
+- ECS services can run multiple tasks across Availability Zones for high availability.
 
-AWS X-Ray provides distributed tracing across calls between the microservices and helps visualize latency and failures across the service chain.
+### Requirement mapping
 
-### Security
-
-The proposed design follows these principles:
-
-- only the ALB is internet-facing;
-- Fargate tasks run in private subnets;
-- security groups restrict traffic between components;
-- application secrets are stored in Secrets Manager;
-- IAM task roles follow least privilege;
-- container images are stored in private ECR repositories.
-
-### Architecture decisions
-
-| Requirement | AWS service / design |
+| Project requirement | Design |
 | --- | --- |
-| Run containers without managing servers | ECS Fargate |
+| Container orchestration | Amazon ECS with AWS Fargate |
 | Private container registry | Amazon ECR |
-| Public Layer 7 routing | Application Load Balancer |
-| Internal service discovery | AWS Cloud Map |
-| Secret storage | AWS Secrets Manager |
-| Shared session cache | ElastiCache for Redis |
-| Automated deployment | CodePipeline + CodeDeploy |
-| Safe releases | ECS blue/green deployment |
+| External traffic | Application Load Balancer |
+| Service discovery | AWS Cloud Map |
+| Runtime secrets | AWS Secrets Manager |
+| Shared sessions | Amazon ElastiCache for Redis |
+| CI/CD | AWS CodePipeline, CodeBuild, CodeDeploy |
+| Deployment strategy | Blue/green |
 | Distributed tracing | AWS X-Ray |
 
-### Optional implementation artifacts
+## Optional implementation artifacts
 
-The folder [03-optional-demo](03-optional-demo) contains supporting implementation material such as sample microservices, Docker Compose, Terraform, CI/CD templates, and operational notes.
+The folder [03-optional-demo](03-optional-demo) contains supporting source code, Docker Compose, Terraform, CI/CD templates, and operational notes.
 
-These artifacts are **optional supporting material**. This repository does **not** claim that the full AWS environment has been deployed, and no live URL, screenshots, or demo video are part of the mandatory submission.
-
----
+These files are **optional supporting artifacts**. The repository does **not** claim that the full AWS environment is deployed, and no live URL, screenshots, or recorded demo are included.
 
 ## Repository structure
 
@@ -191,7 +108,6 @@ These artifacts are **optional supporting material**. This repository does **not
 .
 ├── README.md
 ├── 01-architecture-diagram/
-│   ├── architecture.drawio
 │   ├── architecture.svg
 │   └── README.md
 ├── 02-project-documentation/
@@ -203,7 +119,5 @@ These artifacts are **optional supporting material**. This repository does **not
 
 ## Mandatory deliverables
 
-1. **Solution Architecture Diagram** — `01-architecture-diagram`
-2. **GitHub repository with complete project documentation in the README** — this repository and this README
-
-Optional artifacts are isolated in `03-optional-demo`.
+1. **Solution Architecture Diagram** — `01-architecture-diagram/architecture.svg`
+2. **Public GitHub repository with complete documentation in the README** — this repository and this README
