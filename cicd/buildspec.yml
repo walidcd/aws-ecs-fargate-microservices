@@ -17,9 +17,12 @@ phases:
   post_build:
     commands:
       - printf '{"ImageURI":"%s"}' "$REGISTRY/microservices-orders:$IMAGE_TAG" > imageDetail.json
+      - aws ecs describe-task-definition --task-definition microservices-orders --query taskDefinition > taskdef-raw.json
+      - jq 'del(.taskDefinitionArn,.revision,.status,.requiresAttributes,.compatibilities,.registeredAt,.registeredBy) | .containerDefinitions[0].image="<IMAGE1_NAME>"' taskdef-raw.json > taskdef.json
+      - cp cicd/appspec.yaml appspec.yaml
 
 artifacts:
   files:
     - imageDetail.json
-    - cicd/appspec.yaml
-    - cicd/taskdef.json
+    - taskdef.json
+    - appspec.yaml
