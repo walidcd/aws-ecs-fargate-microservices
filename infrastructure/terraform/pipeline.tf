@@ -48,6 +48,11 @@ resource "aws_iam_role_policy" "codebuild" {
       },
       {
         Effect   = "Allow"
+        Action   = ["ecs:DescribeTaskDefinition"]
+        Resource = "*"
+      },
+      {
+        Effect   = "Allow"
         Action   = ["logs:CreateLogGroup","logs:CreateLogStream","logs:PutLogEvents"]
         Resource = "*"
       },
@@ -167,7 +172,25 @@ resource "aws_codepipeline" "main" {
     }
   }
 
-  # The repository includes CodeDeploy AppSpec and task definition templates.
-  # In a production rollout, add a CodeDeployToECS Deploy action after replacing
-  # the template placeholders with the deployed ECS role/region values.
+  stage {
+    name = "DeployOrdersBlueGreen"
+    action {
+      name            = "DeployOrders"
+      category        = "Deploy"
+      owner           = "AWS"
+      provider        = "CodeDeployToECS"
+      version         = "1"
+      input_artifacts = ["BuildOutput"]
+      configuration = {
+        ApplicationName                = aws_codedeploy_app.orders.name
+        DeploymentGroupName            = aws_codedeploy_deployment_group.orders.deployment_group_name
+        TaskDefinitionTemplateArtifact = "BuildOutput"
+        TaskDefinitionTemplatePath     = "taskdef.json"
+        AppSpecTemplateArtifact        = "BuildOutput"
+        AppSpecTemplatePath            = "appspec.yaml"
+        Image1ArtifactName             = "BuildOutput"
+        Image1ContainerName            = "IMAGE1_NAME"
+      }
+    }
+  }
 }
