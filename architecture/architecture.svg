@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1050" viewBox="0 0 1600 1050">
+<style>
+  .title{font:700 34px Arial;fill:#111827}.sub{font:600 20px Arial;fill:#374151}
+  .txt{font:600 18px Arial;fill:#111827}.small{font:15px Arial;fill:#374151}
+  .box{fill:#fff;stroke:#4b5563;stroke-width:2;rx:16}.aws{fill:#fff7ed;stroke:#f59e0b;stroke-width:2;rx:16}
+  .data{fill:#eff6ff;stroke:#2563eb;stroke-width:2;rx:16}.sec{fill:#f0fdf4;stroke:#16a34a;stroke-width:2;rx:16}
+  .vpc{fill:#f9fafb;stroke:#6b7280;stroke-width:3;stroke-dasharray:10 8;rx:22}
+  .line{stroke:#374151;stroke-width:2.5;fill:none;marker-end:url(#a)}
+</style>
+<defs><marker id="a" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#374151"/></marker></defs>
+<text x="800" y="52" text-anchor="middle" class="title">Containerized Microservices on Amazon ECS Fargate</text>
+<text x="800" y="84" text-anchor="middle" class="small">Highly available, secure, service-discovered, blue/green deployment architecture</text>
+
+<rect x="70" y="120" width="1460" height="650" class="vpc"/>
+<text x="95" y="155" class="sub">AWS VPC — Two Availability Zones</text>
+
+<rect x="140" y="190" width="1320" height="145" class="aws"/>
+<text x="800" y="220" text-anchor="middle" class="sub">Public subnets (AZ-a / AZ-b)</text>
+<rect x="570" y="245" width="460" height="62" class="box"/>
+<text x="800" y="282" text-anchor="middle" class="txt">Application Load Balancer — HTTPS</text>
+
+<rect x="140" y="365" width="1320" height="210" class="sec"/>
+<text x="800" y="395" text-anchor="middle" class="sub">Private application subnets — ECS Fargate</text>
+<rect x="220" y="435" width="300" height="90" class="box"/><text x="370" y="470" text-anchor="middle" class="txt">Auth Service</text><text x="370" y="497" text-anchor="middle" class="small">2+ Fargate tasks</text>
+<rect x="650" y="435" width="300" height="90" class="box"/><text x="800" y="470" text-anchor="middle" class="txt">Orders Service</text><text x="800" y="497" text-anchor="middle" class="small">2+ Fargate tasks</text>
+<rect x="1080" y="435" width="300" height="90" class="box"/><text x="1230" y="470" text-anchor="middle" class="txt">Notifications Service</text><text x="1230" y="497" text-anchor="middle" class="small">Cloud Map internal DNS</text>
+
+<rect x="140" y="610" width="1320" height="120" class="data"/>
+<text x="800" y="638" text-anchor="middle" class="sub">Private data subnets</text>
+<rect x="390" y="660" width="330" height="48" class="box"/><text x="555" y="690" text-anchor="middle" class="txt">RDS PostgreSQL Multi-AZ</text>
+<rect x="880" y="660" width="330" height="48" class="box"/><text x="1045" y="690" text-anchor="middle" class="txt">ElastiCache Redis</text>
+
+<rect x="85" y="825" width="260" height="80" class="aws"/><text x="215" y="858" text-anchor="middle" class="txt">GitHub</text><text x="215" y="883" text-anchor="middle" class="small">source</text>
+<rect x="410" y="825" width="260" height="80" class="aws"/><text x="540" y="858" text-anchor="middle" class="txt">CodePipeline / Build</text><text x="540" y="883" text-anchor="middle" class="small">CI + image build</text>
+<rect x="735" y="825" width="260" height="80" class="aws"/><text x="865" y="858" text-anchor="middle" class="txt">Amazon ECR</text><text x="865" y="883" text-anchor="middle" class="small">private images + scan</text>
+<rect x="1060" y="825" width="260" height="80" class="aws"/><text x="1190" y="858" text-anchor="middle" class="txt">CodeDeploy</text><text x="1190" y="883" text-anchor="middle" class="small">ECS blue / green</text>
+
+<rect x="1350" y="825" width="180" height="80" class="box"/><text x="1440" y="858" text-anchor="middle" class="txt">CloudWatch</text><text x="1440" y="883" text-anchor="middle" class="small">Logs + X-Ray</text>
+<rect x="85" y="940" width="260" height="70" class="box"/><text x="215" y="980" text-anchor="middle" class="txt">Secrets Manager</text>
+
+<path d="M800 307 L370 435" class="line"/><text x="510" y="355" class="small">/api/auth/*</text>
+<path d="M800 307 L800 435" class="line"/><text x="820" y="365" class="small">/api/orders/*</text>
+<path d="M950 480 L1080 480" class="line"/><text x="965" y="465" class="small">Cloud Map</text>
+<path d="M370 525 L555 660" class="line"/><path d="M370 525 L1045 660" class="line"/>
+<path d="M800 525 L555 660" class="line"/>
+<path d="M345 865 L410 865" class="line"/><path d="M670 865 L735 865" class="line"/><path d="M995 865 L1060 865" class="line"/>
+<path d="M1190 825 L1010 575" class="line"/>
+<path d="M215 940 L320 525" class="line"/>
+<path d="M1440 825 L1320 525" class="line"/>
+</svg>
