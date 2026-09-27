@@ -309,6 +309,24 @@ resource "aws_iam_role" "ecs_task" {
   assume_role_policy = data.aws_iam_policy_document.ecs_assume.json
 }
 
+resource "aws_iam_role_policy" "xray" {
+  role = aws_iam_role.ecs_task.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "xray:PutTraceSegments",
+        "xray:PutTelemetryRecords",
+        "xray:GetSamplingRules",
+        "xray:GetSamplingTargets",
+        "xray:GetSamplingStatisticSummaries"
+      ]
+      Resource = "*"
+    }]
+  })
+}
+
 resource "aws_cloudwatch_log_group" "service" {
   for_each          = local.services
   name              = "/ecs/${var.project_name}/${each.key}"
@@ -342,7 +360,8 @@ resource "aws_ecs_task_definition" "service" {
   execution_role_arn       = aws_iam_role.ecs_execution.arn
   task_role_arn            = aws_iam_role.ecs_task.arn
 
-  container_definitions = jsonencode([{
+  container_definitions = jsonencode([
+  {
     name      = each.key
     image     = "${aws_ecr_repository.service[each.key].repository_url}:latest"
     essential = true
@@ -367,6 +386,26 @@ resource "aws_ecs_task_definition" "service" {
         awslogs-stream-prefix = "ecs"
       }
     }
+    environment = concat(
+      concat(
+        each.key == "notifications" ? [] : [
+          { name = "DATABASE_URL", value = local.database_url },
+          { name = "REDIS_URL", value = local.redis_url }
+        ],
+        each.key == "orders" ? [
+          { name = "NOTIFICATIONS_URL", value = "http://notifications.microservices.local:8083" }
+        ] : []
+      ),
+      [{ name = "AWS_XRAY_DAEMON_ADDRESS", value = "127.0.0.1:2000" }]
+    )
+    logConfiguration = {
+      logDriver = "awslogs"
+      options = {
+        awslogs-group         = aws_cloudwatch_log_group.service[each.key].name
+        awslogs-region        = var.aws_region
+        awslogs-stream-prefix = "ecs"
+      }
+    }
     healthCheck = {
       command     = ["CMD-SHELL", "wget -q -O - http://localhost:${each.value}/health || exit 1"]
       interval    = 30
@@ -374,7 +413,18 @@ resource "aws_ecs_task_definition" "service" {
       retries     = 3
       startPeriod = 20
     }
-  }])
+  },
+  {
+    name      = "xray-daemon"
+    image     = "public.ecr.aws/xray/aws-xray-daemon:latest"
+    essential = false
+    portMappings = [{
+      containerPort = 2000
+      protocol      = "udp"
+    }]
+    command = ["-o"]
+  }
+  ])
 }
 
 # -------------------------
