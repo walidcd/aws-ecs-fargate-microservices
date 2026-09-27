@@ -191,14 +191,6 @@ resource "aws_secretsmanager_secret" "database" {
   name = "${var.project_name}/database"
 }
 
-resource "aws_secretsmanager_secret_version" "database" {
-  secret_id = aws_secretsmanager_secret.database.id
-  secret_string = jsonencode({
-    username = "appuser"
-    password = random_password.db.result
-  })
-}
-
 resource "aws_db_subnet_group" "main" {
   name       = "${var.project_name}-db"
   subnet_ids = aws_subnet.data[*].id
@@ -350,6 +342,11 @@ locals {
   redis_url    = "rediss://${aws_elasticache_replication_group.redis.primary_endpoint_address}:6379"
 }
 
+resource "aws_secretsmanager_secret_version" "database" {
+  secret_id     = aws_secretsmanager_secret.database.id
+  secret_string = local.database_url
+}
+
 resource "aws_ecs_task_definition" "service" {
   for_each                 = local.services
   family                   = "${var.project_name}-${each.key}"
@@ -359,6 +356,8 @@ resource "aws_ecs_task_definition" "service" {
   memory                   = "512"
   execution_role_arn       = aws_iam_role.ecs_execution.arn
   task_role_arn            = aws_iam_role.ecs_task.arn
+
+  depends_on = [aws_secretsmanager_secret_version.database]
 
   container_definitions = jsonencode([
   {
@@ -371,33 +370,16 @@ resource "aws_ecs_task_definition" "service" {
     }]
     environment = concat(
       each.key == "notifications" ? [] : [
-        { name = "DATABASE_URL", value = local.database_url },
         { name = "REDIS_URL", value = local.redis_url }
       ],
       each.key == "orders" ? [
         { name = "NOTIFICATIONS_URL", value = "http://notifications.microservices.local:8083" }
-      ] : []
-    )
-    logConfiguration = {
-      logDriver = "awslogs"
-      options = {
-        awslogs-group         = aws_cloudwatch_log_group.service[each.key].name
-        awslogs-region        = var.aws_region
-        awslogs-stream-prefix = "ecs"
-      }
-    }
-    environment = concat(
-      concat(
-        each.key == "notifications" ? [] : [
-          { name = "DATABASE_URL", value = local.database_url },
-          { name = "REDIS_URL", value = local.redis_url }
-        ],
-        each.key == "orders" ? [
-          { name = "NOTIFICATIONS_URL", value = "http://notifications.microservices.local:8083" }
-        ] : []
-      ),
+      ] : [],
       [{ name = "AWS_XRAY_DAEMON_ADDRESS", value = "127.0.0.1:2000" }]
     )
+    secrets = each.key == "notifications" ? [] : [
+      { name = "DATABASE_URL", valueFrom = aws_secretsmanager_secret.database.arn }
+    ]
     logConfiguration = {
       logDriver = "awslogs"
       options = {
